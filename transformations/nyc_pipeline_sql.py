@@ -56,23 +56,9 @@ def bronze_table():
 def silver_table():
     return (
         spark.readStream.table("nyc_taxi.default.bronze_data")
-        .select(
-            "VendorID",
-            "tpep_pickup_datetime",
-            "tpep_dropoff_datetime",
-            "passenger_count",
-            "trip_distance",
-            "pickup_longitude",
-            "pickup_latitude",
-            "dropoff_longitude",
-            "dropoff_latitude",
-            "payment_type",
-            "fare_amount",
-            "tip_amount",
-            "total_amount"
-        )
+        .select("*")
         .where(
-            "VendorID IS NOT NULL AND tpep_pickup_datetime IS NOT NULL AND tpep_dropoff_datetime IS NOT NULL"
+            "VendorID IS NOT NULL AND tpep_pickup_datetime IS NOT NULL AND tpep_dropoff_datetime IS NOT NULL AND (RateCodeID IS NULL OR RateCodeID in (1,2,3,4,5,6)) AND (payment_type IS NULL OR payment_type in (1,2,3,4,5,6))"
         )
     )
 
