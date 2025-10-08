@@ -1,0 +1,907 @@
+{
+  "datasets": [
+    {
+      "name": "f37af49f",
+      "displayName": "Bronze_nyc",
+      "queryLines": [
+        "select *,\r\n",
+        "CASE WHEN payment_type=1 THEN 'Credit Card' WHEN payment_type=2 THEN 'Cash' WHEN payment_type=3 THEN 'No charge' WHEN payment_type=4 THEN 'Dispute' WHEN payment_type=5 THEN 'Unknown' ELSE 'Voided trip' end as payment_typee from silver_data;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "9a89360b",
+      "displayName": "Payment_type",
+      "queryLines": [
+        "select date_a,\r\n",
+        "CASE WHEN payment_type=1 THEN 'Credit Card' WHEN payment_type=2 THEN 'Cash' WHEN payment_type=3 THEN 'No charge' WHEN payment_type=4 THEN 'Dispute' WHEN payment_type=5 THEN 'Unknown' ELSE 'Voided trip' end as payment_type\r\n",
+        ",trips_total from (select payment_type,count(*) as trips_total,date_format(tpep_pickup_datetime,'yyyy-MM') as date_a from silver_data group by date_a,payment_type order by 3,1);\r\n"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "95f90999",
+      "displayName": "KPI_CHarge_Impact",
+      "queryLines": [
+        "select sum(total_amount) as total,avg(total_amount) as average_total_amt,\r\n",
+        "CASE\r\n",
+        "when (mta_tax+improvement_surcharge)>0 then \"Extra\"\r\n",
+        "else \"No Extra\" end as extra\r\n",
+        "from silver_data group by 3;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "1b583680",
+      "displayName": "KPI_CHarge_Impact 1",
+      "queryLines": [
+        "select round(((select sum(\r\n",
+        "CASE\r\n",
+        "when (mta_tax+improvement_surcharge)>0 then total_amount\r\n",
+        "else 0 end) as extra\r\n",
+        "from silver_data)*100.0 / (select sum(total_amount) from silver_data)),2) as revenue;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "a62ae7ce",
+      "displayName": "AVrage_trip_speed",
+      "queryLines": [
+        "select concat(round(avg(trip_distance/secondss),3),\" Miles/s\") as avg_speed\r\n",
+        "from(\r\n",
+        "select trip_distance, \r\n",
+        "(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime)) as secondss\r\n",
+        "from bronze_data)\r\n",
+        "where secondss>0;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "423ddff3",
+      "displayName": "SOlovsGroup",
+      "queryLines": [
+        "select *,count(*) as total from\r\n",
+        "(select \r\n",
+        "case when passenger_count = 1 then \"Solo\" \r\n",
+        "when passenger_count=2 then \"Dual\"  \r\n",
+        "when passenger_count=3 then \"Triple\" \r\n",
+        "else \"Group\" end as passenger_type\r\n",
+        "from silver_data \r\n",
+        "where passenger_count>0)\r\n",
+        "group by passenger_type;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "f9c08c3e",
+      "displayName": "Averagefarepertrip",
+      "queryLines": [
+        "select concat(\"$. \",round(avg(Fare_amount),2)) as avg_fare from silver_data;"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    },
+    {
+      "name": "5745a439",
+      "displayName": "Vendor_Comparision",
+      "queryLines": [
+        "select \r\n",
+        "case when VendorID = 1 then 'Creative Mobile Technologies' \r\n",
+        "when VendorID = 2 then 'VeriFone Inc.' \r\n",
+        "else 'Unknown' end as vendor,round(sum(Total_amount),2) as total_revenue\r\n",
+        " from silver_data\r\n",
+        " group by vendor"
+      ],
+      "catalog": "nyc_taxi",
+      "schema": "default"
+    }
+  ],
+  "pages": [
+    {
+      "name": "8429df96",
+      "displayName": "Payment_Behavior",
+      "layout": [
+        {
+          "widget": {
+            "name": "72fcf63a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9a89360b",
+                  "fields": [
+                    {
+                      "name": "payment_type",
+                      "expression": "`payment_type`"
+                    },
+                    {
+                      "name": "date_a",
+                      "expression": "`date_a`"
+                    },
+                    {
+                      "name": "sum(trips_total)",
+                      "expression": "SUM(`trips_total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "date_a",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "axis": {
+                    "labelAngle": 0,
+                    "title": "Date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(trips_total)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "trips_total"
+                  }
+                },
+                "color": {
+                  "fieldName": "payment_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Payment type vs total_tips",
+                "headerAlignment": "center"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "7e1854a3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "payment_typee",
+                      "expression": "`payment_typee`"
+                    },
+                    {
+                      "name": "avg(tip_amount)",
+                      "expression": "AVG(`tip_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "payment_typee",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "avg(tip_amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Avg Tip per trip on each payment type"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "4b03a2ea",
+      "displayName": "Global Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
+    },
+    {
+      "name": "a3151428",
+      "displayName": "Extra Charges Impact",
+      "layout": [
+        {
+          "widget": {
+            "name": "b92e290c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "95f90999",
+                  "fields": [
+                    {
+                      "name": "extra",
+                      "expression": "`extra`"
+                    },
+                    {
+                      "name": "sum(average_total_amt)",
+                      "expression": "SUM(`average_total_amt`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "extra",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(average_total_amt)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "Average_total_amount"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "avg total_amount with vs without extras."
+              },
+              "mark": {
+                "colors": [
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "f33edc82",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1b583680",
+                  "fields": [
+                    {
+                      "name": "sum(revenue)",
+                      "expression": "SUM(`revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(revenue)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "% of revenue from extras"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "d203dbf3",
+      "displayName": "Advanced",
+      "layout": [
+        {
+          "widget": {
+            "name": "50b59a97",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "trip_distance",
+                      "expression": "`trip_distance`"
+                    },
+                    {
+                      "name": "tip_amount",
+                      "expression": "`tip_amount`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "trip_distance",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "trip_distance(miles)"
+                  }
+                },
+                "y": {
+                  "fieldName": "tip_amount",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "tip_amount(in $)"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Distance VS Tip"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "14e0dbba",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "pickup_latitude",
+                      "expression": "`pickup_latitude`"
+                    },
+                    {
+                      "name": "pickup_longitude",
+                      "expression": "`pickup_longitude`"
+                    },
+                    {
+                      "name": "total_amount",
+                      "expression": "`total_amount`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "latitude": {
+                    "fieldName": "pickup_latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "pickup_longitude"
+                  }
+                },
+                "size": {
+                  "fieldName": "total_amount",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Pickup Point where most revenue generated"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "e449a2c8",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "dropoff_latitude",
+                      "expression": "`dropoff_latitude`"
+                    },
+                    {
+                      "name": "dropoff_longitude",
+                      "expression": "`dropoff_longitude`"
+                    },
+                    {
+                      "name": "total_amount",
+                      "expression": "`total_amount`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "latitude": {
+                    "fieldName": "dropoff_latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "dropoff_longitude"
+                  }
+                },
+                "size": {
+                  "fieldName": "total_amount",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Drop Point where most revenue generated"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "bf25246b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a62ae7ce",
+                  "fields": [
+                    {
+                      "name": "avg_speed",
+                      "expression": "`avg_speed`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_speed"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Average Speed"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "a4174969",
+      "displayName": "Passenger & Trip Characteristics",
+      "layout": [
+        {
+          "widget": {
+            "name": "3e59dbc2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "423ddff3",
+                  "fields": [
+                    {
+                      "name": "passenger_type",
+                      "expression": "`passenger_type`"
+                    },
+                    {
+                      "name": "sum(total)",
+                      "expression": "SUM(`total`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "passenger_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "Number of trips type"
+                  },
+                  "displayName": "Nymber of trips type"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 0,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "87baf213",
+      "displayName": "Revenue Insights",
+      "layout": [
+        {
+          "widget": {
+            "name": "0290479b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f9c08c3e",
+                  "fields": [
+                    {
+                      "name": "avg_fare",
+                      "expression": "`avg_fare`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_fare"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Average Fare Per Trip"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "44c6fce9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "monthly(tpep_pickup_datetime)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `tpep_pickup_datetime`)"
+                    },
+                    {
+                      "name": "sum(Total_amount)",
+                      "expression": "SUM(`Total_amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(tpep_pickup_datetime)",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(Total_amount)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "ba5007e4",
+            "queries": [
+              {
+                "name": "dashboards/01f09f736c651298bc875050b25fdc58/datasets/01f09f73c4eb1844b692bd7f80f3ced7_tpep_pickup_datetime",
+                "query": {
+                  "datasetName": "f37af49f",
+                  "fields": [
+                    {
+                      "name": "tpep_pickup_datetime",
+                      "expression": "`tpep_pickup_datetime`"
+                    },
+                    {
+                      "name": "tpep_pickup_datetime_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "tpep_pickup_datetime",
+                    "queryName": "dashboards/01f09f736c651298bc875050b25fdc58/datasets/01f09f73c4eb1844b692bd7f80f3ced7_tpep_pickup_datetime"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fe9b2026",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "5745a439",
+                  "fields": [
+                    {
+                      "name": "vendor",
+                      "expression": "`vendor`"
+                    },
+                    {
+                      "name": "sum(total_revenue)",
+                      "expression": "SUM(`total_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "vendor",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "axis": {
+                    "labelAngle": 0
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_revenue)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total_Revenue"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "headerAlignment": "center",
+                "title": "Vendor Comparision"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "locale": "en-US",
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FAFAFB",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#077A9D",
+        "#FFAB00",
+        "#00A972",
+        "#FF3621",
+        "#8BCAE7",
+        "#AB4057",
+        "#99DDB4",
+        "#FCA4A1",
+        "#919191",
+        "#BF7080"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}
